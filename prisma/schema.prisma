@@ -1,0 +1,225 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum ROLE {
+  SUPERADMIN
+  ADMIN
+  MODERATOR
+}
+
+model Admin {
+
+  id        String     @default(uuid()) @unique
+  username  String     @db.VarChar(50)
+  email     String     @db.VarChar(50)
+  password  String     @db.VarChar(255)
+
+  role      ROLE       @default(ADMIN)
+  active    Boolean    @default(true)
+
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime?  @map("updated_at")
+
+  vouchers  Voucher[]
+
+
+  @@map("admins")
+}
+
+model Customer {
+
+  id        String     @default(uuid()) @unique
+  username  String     @db.VarChar(255)
+  email     String     @db.VarChar(50) @unique
+  password  String     @db.VarChar(255)
+  phone     String     @db.VarChar(20)
+
+  refreshToken    String?  @map("refresh_token")
+  shippingAddress String  @map("shipping_address")
+
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt      @map("updated_at")
+
+  orders    Order[]
+  vouchers  Voucher[]
+  discountCode DiscountCode[]
+
+  @@map("customers")
+}
+// -------------------------------------Product Info & Category------------------------------------
+model Category {
+
+  id            String      @default(uuid())  @unique
+  name          String      @db.VarChar(100) @unique
+  description   String?     @db.VarChar(255)
+  thumbnailImage String     @db.VarChar(100)  @map("thumbnail_image")
+
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt()
+  deletedAt     DateTime?
+
+  Product       Product[]
+
+  @@map("Categories")
+}
+model Product {
+
+    id          String       @default(uuid()) @unique
+    name        String       @db.VarChar(100) @unique
+
+    CategoryId  String
+    Category    Category    @relation(fields: [CategoryId],references: [id] , onUpdate: Cascade,onDelete:NoAction )
+    STATUS      STATUS
+
+    price        Int
+    description  String      @db.VarChar(255)
+    stocks       Int         @default(0)     @map("lowstock_unit")
+
+    createdAt   DateTime     @default(now()) @map("created_at")
+    updatedAt   DateTime     @updatedAt()    @map("updated_at")
+    deletedAt   DateTime?
+
+    ProductPhotos  ProductPhoto[]
+    orders         OrderDetail[]
+    vouchers       VoucherDetail[]
+
+    @@map("Products")
+}
+model ProductPhoto {
+
+  id          String    @default(uuid()) @unique
+  photoUrl    String    @map("photo_url")
+
+  ProductId   String
+  Product     Product   @relation(fields: [ProductId],references: [id],onUpdate: Cascade,onDelete: Cascade)
+
+  @@map("Product_Photos")
+}
+
+model DiscountCode {
+
+  id          String        @default(uuid()) @unique
+  code        String        @unique
+  status      STATUS        @default(ACTIVE)
+  amount      Int           @default(0)
+  count       Int           
+  lifespan    DateTime 
+
+  customerId  String
+  customer    Customer     @relation(fields: [customerId],references: [id],onDelete: Cascade,onUpdate: Cascade) 
+
+  createdAt   DateTime     @default(now())   @map("created_at")
+  updatedAt   DateTime     @updatedAt        @map("updated_at")
+
+  vouchers    Voucher[]
+
+  @@map("discount_codes")
+}
+
+// -------------------------------------------Order & Voucher------------------------------------
+model  Order{
+
+   id            String     @default(uuid()) @unique
+   customerId    String
+   customer      Customer @relation(fields: [customerId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+   shippingAddress  String   @db.VarChar(255)
+   township         String?  @db.VarChar(20)
+   state            String?  @db.VarChar(20)
+   city             String?  @db.VarChar(20)  
+   zipCode          String?  @db.VarChar(20) @map("zip_code")
+
+   orderDate        DateTime @default(now())
+   deliveryDate     DateTime @db.Date @map("delivery_date") 
+
+   paymentType      PAYMENTS @default(CASH_ON_DELIVERY) @map("payment_type")
+   deliveryType     DELIVERY @default(STORE_PICKUP)     @map("delivery_type")
+
+   createdAt        DateTime @default(now())  @map("created_at")
+   updatedAt        DateTime @updatedAt    
+
+   orders           OrderDetail[]
+
+   @@map("orders")
+}
+model OrderDetail {
+
+    orderId       String 
+    orders        Order @relation(fields: [orderId],references: [id],onUpdate: Cascade,onDelete: Cascade)
+
+    productId     String
+    products      Product @relation(fields: [productId],references: [id],onUpdate: Cascade,onDelete: Cascade)
+
+    @@id([orderId,productId])
+}
+
+model Voucher {
+
+  id              String      @default(uuid()) @unique
+  code            String      @unique
+  status          STATUS      @default(ACTIVE)
+
+  remark          String?
+
+  discountId      String
+  discountCode    DiscountCode @relation(fields: [discountId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+ 
+  purchasedById   String
+  purchasedBy     Customer @relation(fields: [purchasedById],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+  approvedById    String
+  approvedBy      Admin  @relation(fields: [approvedById],references: [id],onDelete: Cascade,onUpdate: Cascade)   
+
+  subTotal       Float   @default(0.0)      @map("sub_total")
+  grandTotal     Float   @default(0.0)      @map("grand_total")
+
+  vouchers       VoucherDetail[]
+}
+model VoucherDetail {
+
+  id             String     @default(uuid()) @unique
+  
+  voucherId      String
+  voucher        Voucher    @relation(fields: [voucherId],references: [id],onUpdate: Cascade,onDelete: Cascade)
+
+  productId      String
+  product        Product    @relation(fields: [productId],references: [id],onUpdate: Cascade,onDelete: Cascade)
+  
+  quantity       Int
+  total          Int 
+
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt      @map("updated_at")
+  deletedAt     DateTime?
+}
+
+enum STATUS {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum DELIVERY {
+  STORE_PICKUP
+  YANGON
+  OTHERS
+}
+
+enum PAYMENTS {
+   CASH_ON_DELIVERY
+   BANK_TRANSFER
+}
+
+enum DISCOUNT_CODE_TYPE {
+    AMOUNT
+    PERCENTAGE
+}
