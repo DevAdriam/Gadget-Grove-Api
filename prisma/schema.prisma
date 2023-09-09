@@ -14,6 +14,7 @@ enum ROLE {
   SUPERADMIN
   ADMIN
   MODERATOR
+  USER 
 }
 
 model Admin {
@@ -29,7 +30,7 @@ model Admin {
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime?  @map("updated_at")
 
-  vouchers  Voucher[]
+  vouchers  Voucher[]  @relation("approved_by")
 
 
   @@map("admins")
@@ -42,6 +43,7 @@ model Customer {
   email     String     @db.VarChar(50) @unique
   password  String     @db.VarChar(255)
   phone     String     @db.VarChar(20)
+  ROLE      ROLE      @default(USER)
 
   refreshToken    String?  @map("refresh_token")
   shippingAddress String  @map("shipping_address")
@@ -49,12 +51,23 @@ model Customer {
   createdAt DateTime   @default(now()) @map("created_at")
   updatedAt DateTime   @updatedAt      @map("updated_at")
 
-  orders    Order[]
-  vouchers  Voucher[]
-  discountCode DiscountCode[]
+  orders          Order[]
+  vouchers        Voucher[]
+  discountCode    DiscountCode[]
+  reviews         Reviews[]
 
   @@map("customers")
 }
+model Shop {
+   id            String     @default(uuid()) @unique
+   name          String     @db.VarChar(100)
+   township      String     @db.VarChar(70)
+
+   location      String     @db.VarChar(255)
+   Orders        Order[]
+
+}
+
 // -------------------------------------Product Info & Category------------------------------------
 model Category {
 
@@ -83,17 +96,44 @@ model Product {
     price        Int
     description  String      @db.VarChar(255)
     stocks       Int         @default(0)     @map("lowstock_unit")
+    brand        String      @db.VarChar(100)
 
     createdAt   DateTime     @default(now()) @map("created_at")
     updatedAt   DateTime     @updatedAt()    @map("updated_at")
     deletedAt   DateTime?
 
+    sizes          Size[]
     ProductPhotos  ProductPhoto[]
     orders         OrderDetail[]
     vouchers       VoucherDetail[]
+    reviews        Reviews[]
 
     @@map("Products")
 }
+
+model Size {
+
+  id        String @default(uuid()) @unique
+  size      String
+
+  productId String
+  product   Product @relation(fields: [productId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+}
+
+model Reviews {
+
+  id        String @default(uuid()) @unique
+  comment   String  
+
+  customerId    String
+  customer      Customer @relation(fields: [customerId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+  productId     String
+  product       Product  @relation(fields: [productId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
+}
+
 model ProductPhoto {
 
   id          String    @default(uuid()) @unique
@@ -126,7 +166,7 @@ model DiscountCode {
 }
 
 // -------------------------------------------Order & Voucher------------------------------------
-model  Order{
+model  Order {
 
    id            String     @default(uuid()) @unique
    customerId    String
@@ -138,6 +178,9 @@ model  Order{
    city             String?  @db.VarChar(20)  
    zipCode          String?  @db.VarChar(20) @map("zip_code")
 
+   shopId           String
+   shopDetail       Shop     @relation(fields: [shopId],references: [id],onDelete: Cascade,onUpdate: Cascade)
+
    orderDate        DateTime @default(now())
    deliveryDate     DateTime @db.Date @map("delivery_date") 
 
@@ -148,6 +191,7 @@ model  Order{
    updatedAt        DateTime @updatedAt    
 
    orders           OrderDetail[]
+   
 
    @@map("orders")
 }
@@ -177,7 +221,7 @@ model Voucher {
   purchasedBy     Customer @relation(fields: [purchasedById],references: [id],onDelete: Cascade,onUpdate: Cascade)
 
   approvedById    String
-  approvedBy      Admin  @relation(fields: [approvedById],references: [id],onDelete: Cascade,onUpdate: Cascade)   
+  approvedBy      Admin  @relation("approved_by",fields: [approvedById],references: [id],onDelete: Cascade,onUpdate: Cascade)   
 
   subTotal       Float   @default(0.0)      @map("sub_total")
   grandTotal     Float   @default(0.0)      @map("grand_total")

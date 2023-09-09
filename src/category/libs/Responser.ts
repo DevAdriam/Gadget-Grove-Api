@@ -5,7 +5,7 @@ type responseInterface<T> = {
   body: T;
 };
 
-const Responser = ({
+export const Responser = ({
   statusCode,
   Message,
   devMessage,
