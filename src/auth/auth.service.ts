@@ -61,6 +61,7 @@ export class AuthService {
 
   async register(dto: registerAuth) {
     try {
+      // hayhay
       const { username, email, phone, password, address } = dto;
 
       if (!username || !email || !phone || !address)
